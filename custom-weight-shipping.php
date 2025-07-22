@@ -1,76 +1,55 @@
 <?php
 /**
- * Plugin Name: Custom Weight Based Shipping
- * Description: WooCommerce shipping method based on product weight.
- * Version: 1.0
+ * Plugin Name: Weight Based Shipping - Dhaka & Outside
+ * Description: Auto-selects editable weight-based shipping based on district (billing_state). Supports Bangla and English district names.
+ * Version: 2.1.3
  * Author: absoftlab
  * Author URI: https://absoftlab.com
  */
 
-if ( ! defined( 'ABSPATH' ) ) exit;
 
-function cws_init() {
-    if ( ! class_exists( 'WC_Shipping_Method' ) ) return;
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
 
-    class WC_Weight_Based_Shipping extends WC_Shipping_Method {
+/**
+ * Load custom shipping methods
+ */
+function absoftlab_register_weight_shipping_methods() {
+    require_once plugin_dir_path( __FILE__ ) . 'includes/class-wc-shipping-inside-dhaka.php';
+    require_once plugin_dir_path( __FILE__ ) . 'includes/class-wc-shipping-outside-dhaka.php';
 
-        public function __construct() {
-            $this->id                 = 'weight_based_shipping';
-            $this->method_title       = 'Weight Based Shipping';
-            $this->method_description = 'Shipping cost calculated based on total cart weight.';
-            $this->enabled            = "yes";
-            $this->title              = "Weight Based Shipping";
+    add_filter( 'woocommerce_shipping_methods', function( $methods ) {
+        $methods['inside_dhaka'] = 'WC_Shipping_Inside_Dhaka';
+        $methods['outside_dhaka'] = 'WC_Shipping_Outside_Dhaka';
+        return $methods;
+    });
+}
+add_action( 'woocommerce_shipping_init', 'absoftlab_register_weight_shipping_methods' );
 
-            $this->init();
-        }
+/**
+ * Enable only one shipping method based on billing state
+ */
+add_filter( 'woocommerce_shipping_method_is_available', 'absoftlab_limit_shipping_by_district', 20, 2 );
+function absoftlab_limit_shipping_by_district( $is_available, $method ) {
+    if ( ! in_array( $method->id, ['inside_dhaka', 'outside_dhaka'] ) ) {
+        return $is_available;
+    }
 
-        function init() {
-            $this->init_form_fields();
-            $this->init_settings();
-            $this->enabled = $this->get_option( 'enabled' );
-            $this->title   = $this->get_option( 'title' );
+    $packages = WC()->shipping()->get_packages();
+    if ( empty( $packages[0]['destination']['state'] ) ) {
+        return $is_available; // fallback if state not selected yet
+    }
 
-            add_action( 'woocommerce_update_options_shipping_' . $this->id, array( $this, 'process_admin_options' ) );
-        }
+    $district = strtolower( trim( $packages[0]['destination']['state'] ) );
+    $district = str_replace(['city', 'district', 'জেলা', 'শহর'], '', $district);
+    $district = trim($district);
 
-        public function calculate_shipping( $package = array() ) {
-            $weight = 0;
-            foreach ( $package['contents'] as $item ) {
-                if ( $item['data']->has_weight() ) {
-                    $weight += floatval( $item['data']->get_weight() ) * intval( $item['quantity'] );
-                }
-            }
+    $inside_dhaka = ['dhaka', 'ঢাকা'];
 
-            $cost = 0;
-
-            // Weight-based rate logic (example)
-            if ( $weight <= 1 ) {
-                $cost = 50;
-            } elseif ( $weight <= 5 ) {
-                $cost = 100;
-            } elseif ( $weight <= 10 ) {
-                $cost = 150;
-            } else {
-                $cost = 200;
-            }
-
-            $rate = array(
-                'id'    => $this->id,
-                'label' => $this->title,
-                'cost'  => $cost,
-                'calc_tax' => 'per_order'
-            );
-
-            $this->add_rate( $rate );
-        }
+    if ( in_array( $district, $inside_dhaka ) ) {
+        return $method->id === 'inside_dhaka';
+    } else {
+        return $method->id === 'outside_dhaka';
     }
 }
-
-add_action( 'woocommerce_shipping_init', 'cws_init' );
-
-function add_cws_method( $methods ) {
-    $methods['weight_based_shipping'] = 'WC_Weight_Based_Shipping';
-    return $methods;
-}
-
-add_filter( 'woocommerce_shipping_methods', 'add_cws_method' );
