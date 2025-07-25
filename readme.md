@@ -79,9 +79,12 @@ A custom WooCommerce shipping plugin for Bangladesh that automatically calculate
 
 ## 🛠 Developers
 
-### Add More Districts for Sundarban Courier
-
-Edit the filter inside the plugin:
-
-```php
-$sundarban_supported = ['All Bangladesh'];
+your-plugin-folder/
+├── assets/
+│   └── js/
+│       └── auto-select-shipping.js
+├── includes/
+│   ├── class-wc-shipping-inside-dhaka.php
+│   ├── class-wc-shipping-outside-dhaka.php
+│   └── class-wc-shipping-sundarban-courier.php
+└── your-main-plugin-file.php

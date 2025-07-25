@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Weight Based Shipping - Dhaka & Outside
  * Description: Auto-selects editable weight-based shipping based on district (billing_state). Supports Bangla and English district names.
- * Version: 2.1.4
+ * Version: 2.2.2
  * Author: absoftlab
  * Author URI: https://absoftlab.com
  */
@@ -35,13 +35,17 @@ add_action( 'woocommerce_shipping_init', 'absoftlab_register_weight_shipping_met
  */
 add_filter( 'woocommerce_shipping_method_is_available', 'absoftlab_limit_shipping_by_district', 20, 2 );
 function absoftlab_limit_shipping_by_district( $is_available, $method ) {
+    if ( $method->id === 'sundarban_courier' ) {
+        return true;
+    }
+
     if ( ! in_array( $method->id, ['inside_dhaka', 'outside_dhaka'] ) ) {
         return $is_available;
     }
 
     $packages = WC()->shipping()->get_packages();
     if ( empty( $packages[0]['destination']['state'] ) ) {
-        return $is_available; // fallback if state not selected yet
+        return $is_available;
     }
 
     $district = strtolower( trim( $packages[0]['destination']['state'] ) );
